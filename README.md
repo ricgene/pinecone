@@ -17,6 +17,44 @@ A Retrieval-Augmented Generation (RAG) system built with LangChain, Pinecone, an
 - Pinecone API key (get from [Pinecone Console](https://app.pinecone.io/))
 - Google AI API key (get from [Google AI Studio](https://makersuite.google.com/app/apikey))
 
+## Pinecone Setup Guide
+
+1. **Create a Pinecone Account**:
+   - Go to [Pinecone Console](https://app.pinecone.io/)
+   - Click "Sign Up" and create an account
+   - Verify your email address
+
+2. **Create a Project**:
+   - After logging in, click "Create Project"
+   - Give your project a name
+   - Select a cloud provider (GCP for free tier)
+   - Choose a region (closest to your location)
+
+3. **Get Your API Key and Environment**:
+   - In your project dashboard, go to "API Keys"
+   - Copy your API key
+   - Note your environment (e.g., `gcp-starter` for free tier)
+   - Available environments:
+     - `gcp-starter`: Free tier
+     - `us-west1-gcp`, `us-east1-gcp`: GCP regions
+     - `us-east-1-aws`, `us-west-2-aws`: AWS regions
+
+4. **Configure Your Environment**:
+   ```bash
+   cp .env-example .env
+   ```
+   Edit `.env` and add your Pinecone credentials:
+   ```
+   PINECONE_API_KEY=your-api-key-here
+   PINECONE_ENVIRONMENT=your-environment-here
+   ```
+
+5. **Test Your Setup**:
+   ```bash
+   python helloRedwood.py
+   ```
+   This will create a test index and verify your connection.
+
 ## Installation
 
 1. Clone the repository:
