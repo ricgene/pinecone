@@ -11,6 +11,7 @@ from google.oauth2 import service_account
 import json
 from langchain_openai import OpenAIEmbeddings
 from pinecone import Pinecone
+from pinecone import ServerlessSpec
 
 load_dotenv()
 
@@ -22,7 +23,7 @@ def google_auth():
     # Get credentials path
     credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     project_id = os.getenv("GOOGLE_PROJECT_ID")
-    
+
     print("Debug Information:")
     print(f"Credentials path: {credentials_path}")
     print(f"Project ID: {project_id}")
@@ -59,14 +60,12 @@ def google_auth():
 google_auth()
 
 
-
 def download_pdf_from_gcs(bucket_name, blob_name, destination_file):
     client = storage.Client()
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(blob_name)
     blob.download_to_filename(destination_file)
     print(f"Downloaded {blob_name} to {destination_file}")
-
 
 
 def extract_text_from_pdf(pdf_path):
@@ -78,6 +77,18 @@ def extract_text_from_pdf(pdf_path):
         all_text.append(text)
     return all_text
 
+def create_pinecone_index(index_name):
+    api_key = os.getenv("PINECONE_API_KEY")
+    pc = Pinecone(api_key=api_key)
+    pc.create_index(
+        name=index_name,
+        dimension=1536,
+        metric="cosine",
+        spec=ServerlessSpec(cloud="aws", region="us-east-1")
+    )   
+    print(f"Created Pinecone index: {index_name}")
+
+
 def chunk_text(texts, chunk_size=500):
     chunks = []
     for text in texts:
@@ -88,12 +99,17 @@ def chunk_text(texts, chunk_size=500):
     return chunks
 
 def embed_chunks(chunks, model="text-embedding-ada-002"):
-    embedder = OpenAIEmbeddings()
-    embeddings = embedder.embed_documents(chunks)
+    embeddings = OpenAIEmbeddings().embed_documents(chunks)
     return embeddings
 
-
-
+def query_pinecone(index_name, query, top_k=5):
+    pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+    index = pc.Index(index_name)
+    query_vector = OpenAIEmbeddings().embed_query(query)
+    # results = index.query(query_vector, top_k=top_k)
+    results = index.query(vector=query_vector, top_k=top_k)
+    print(results)
+    return results
 
 def upsert_to_pinecone(index_name, chunks, embeddings, api_key):
     pc = Pinecone(api_key=api_key)
@@ -122,7 +138,16 @@ chunks = chunk_text(pages, chunk_size=500)
 # Step 4: Embed
 embeddings = embed_chunks(chunks)
 
+# Step 5: Create Pinecone index
+index_name = "vso-index1"
+create_pinecone_index(index_name)
+
 # Step 5: Upsert
 pinecone_api_key = os.getenv("PINECONE_API_KEY")
-index_name = "vso-index-1"
+# index_name = "vso-index1"
 upsert_to_pinecone(index_name, chunks, embeddings, pinecone_api_key)
+
+# Step 6: Query Pinecone
+query = "What is the main topic of the document?"
+results = query_pinecone(index_name, query)
+print(results)
