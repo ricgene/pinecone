@@ -102,13 +102,22 @@ def embed_chunks(chunks, model="text-embedding-ada-002"):
     embeddings = OpenAIEmbeddings().embed_documents(chunks)
     return embeddings
 
-def query_pinecone(index_name, query, top_k=5):
-    pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+def query_pinecone(index_name, query_text, top_k=3):
+    # 1. Embed the query using the same model as your document chunks
+    embedder = OpenAIEmbeddings()
+    query_vector = embedder.embed_query(query_text)
+    
+    # 2. Query Pinecone with the embedding
+    pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
     index = pc.Index(index_name)
-    query_vector = OpenAIEmbeddings().embed_query(query)
-    # results = index.query(query_vector, top_k=top_k)
-    results = index.query(vector=query_vector, top_k=top_k)
-    print(results)
+    results = index.query(vector=query_vector, top_k=top_k, include_metadata=True)
+    
+    # 3. Extract and print the most similar chunks and their text
+    print(f"\nTop {top_k} results for: \"{query_text}\"")
+    for match in results['matches']:
+        score = match['score']
+        text = match['metadata'].get('text', '[No text]')
+        print(f"\nScore: {score:.4f}\nText: {text[:400]}")  # Print up to 500 chars
     return results
 
 def upsert_to_pinecone(index_name, chunks, embeddings, api_key):
@@ -140,14 +149,23 @@ embeddings = embed_chunks(chunks)
 
 # Step 5: Create Pinecone index
 index_name = "vso-index1"
-create_pinecone_index(index_name)
+try:        
+    create_pinecone_index(index_name)
+except Exception as e:
+    print(f"Error creating Pinecone index / may be there already: {e}")
 
 # Step 5: Upsert
 pinecone_api_key = os.getenv("PINECONE_API_KEY")
 # index_name = "vso-index1"
-upsert_to_pinecone(index_name, chunks, embeddings, pinecone_api_key)
+print(f"Upserting to Pinecone: {index_name}")   
+try:
+    upsert_to_pinecone(index_name, chunks, embeddings, pinecone_api_key)
+except Exception as e:
+    print(f"Error upserting to Pinecone or already exists: {e}")
 
 # Step 6: Query Pinecone
 query = "What is the main topic of the document?"
+print(f"Querying Pinecone for: {query}")
 results = query_pinecone(index_name, query)
+
 print(results)
