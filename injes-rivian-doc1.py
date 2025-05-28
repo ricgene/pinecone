@@ -120,6 +120,22 @@ def query_pinecone(index_name, query_text, top_k=3):
         print(f"\nScore: {score:.4f}\nText: {text[:400]}")  # Print up to 500 chars
     return results
 
+
+def print_friendly_pinecone_results(query, results, max_text_length=350):
+    print(f"\nTop {len(results['matches'])} results for: \"{query}\"\n" + "-"*60)
+    for idx, match in enumerate(results['matches'], 1):
+        score = match.get('score', 0)
+        text = match.get('metadata', {}).get('text', '[No text found]')
+        # Clean up whitespace and limit text length
+        clean_text = ' '.join(text.split())
+        if len(clean_text) > max_text_length:
+            clean_text = clean_text[:max_text_length] + "..."
+        print(f"\nResult {idx}:")
+        print(f"Score: {score:.4f}")
+        print(f"Excerpt: {clean_text}")
+    print("-"*60)
+
+
 def upsert_to_pinecone(index_name, chunks, embeddings, api_key):
     pc = Pinecone(api_key=api_key)
     index = pc.Index(index_name)
@@ -164,8 +180,8 @@ except Exception as e:
     print(f"Error upserting to Pinecone or already exists: {e}")
 
 # Step 6: Query Pinecone
-query = "What is the main topic of the document?"
+query = "What is the title of the document? and the chapters"
 print(f"Querying Pinecone for: {query}")
 results = query_pinecone(index_name, query)
+print_friendly_pinecone_results(query, results)
 
-print(results)
