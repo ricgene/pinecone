@@ -1,7 +1,64 @@
 import os
 import openai   
 from google.cloud import storage
-from pymupdf import fitz
+import fitz
+#from pymupdf import fitz
+
+import os
+from dotenv import load_dotenv
+from google.cloud import storage
+from google.oauth2 import service_account
+import json
+from langchain_openai import OpenAIEmbeddings
+from pinecone import Pinecone
+
+load_dotenv()
+
+def google_auth():
+    """Test Google Cloud authentication and list buckets."""
+    # Load environment variables
+    load_dotenv()
+    
+    # Get credentials path
+    credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+    project_id = os.getenv("GOOGLE_PROJECT_ID")
+    
+    print("Debug Information:")
+    print(f"Credentials path: {credentials_path}")
+    print(f"Project ID: {project_id}")
+    
+    if not credentials_path or not project_id:
+        print("Error: Missing Google Cloud credentials in .env file")
+        print("\nPlease set these variables in your .env file:")
+        print("GOOGLE_APPLICATION_CREDENTIALS=/path/to/your/service-account-key.json")
+        print("GOOGLE_PROJECT_ID=your-project-id")
+        return
+    
+    # Verify credentials file exists and is readable
+    if not os.path.exists(credentials_path):
+        print(f"Error: Credentials file not found at {credentials_path}")
+        return
+    
+    try:
+        # Try to read the credentials file
+        with open(credentials_path, 'r') as f:
+            creds_data = json.load(f)
+            print("\nCredentials file contents:")
+            print(f"Project ID in file: {creds_data.get('project_id')}")
+            print(f"Client email: {creds_data.get('client_email')}")
+        
+        # Initialize Google Cloud client
+        print(f"\nConnecting to Google Cloud project: {project_id}")
+        client = storage.Client()
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return
+    
+    print("Successfully connected to Google Cloud")
+    
+google_auth()
+
+
 
 def download_pdf_from_gcs(bucket_name, blob_name, destination_file):
     client = storage.Client()
@@ -31,13 +88,12 @@ def chunk_text(texts, chunk_size=500):
     return chunks
 
 def embed_chunks(chunks, model="text-embedding-ada-002"):
-    embeddings = []
-    for chunk in chunks:
-        response = openai.Embedding.create(input=chunk, model=model)
-        embeddings.append(response['data'][0]['embedding'])
+    embedder = OpenAIEmbeddings()
+    embeddings = embedder.embed_documents(chunks)
     return embeddings
 
-from pinecone import Pinecone
+
+
 
 def upsert_to_pinecone(index_name, chunks, embeddings, api_key):
     pc = Pinecone(api_key=api_key)
@@ -54,6 +110,7 @@ def upsert_to_pinecone(index_name, chunks, embeddings, api_key):
 # bucket = "vso1-prizmpoc"
 blob = "draft-ea-2251-rivian-stanton-springs-north-2024-10.pdf"
 local_pdf = "local.pdf"
+bucket = "vso1-prizmpoc"
 download_pdf_from_gcs(bucket, blob, local_pdf)
 
 # Step 2: Extract text
